@@ -70,49 +70,58 @@ macroApi.post('/letter', (req, res) => {
                             letterList = result.listResult.filter(i => i.nickname === myNickname);
                             console.log(`current letter size: ${letterList.length}`)
                             
-                            writeLetter(cookie, letterList.length + 1, (err,httpResponse,body) => {
-                                if (err) {
-                                    res.send({
-                                        success: false,
-                                        message: `Error while write letter ${err.message}`
-                                    })
-                                }
-                                console.log('Write letter body ', body);
-                                const result = JSON.parse(body);
-                                if (result.resultCd === '0000') {
-                                    checkLetterList(cookie, (err,httpResponse,body) => {
+                            crawlNaverKeywordRealtimeListener((keywordData) => {
+                                if (keywordData) {
+                                    writeLetter(cookie, letterList.length + 1, keywordData, (err,httpResponse,body) => {
                                         if (err) {
                                             res.send({
                                                 success: false,
-                                                message: `Error while check letter list agin ${err.message}`
+                                                message: `Error while write letter ${err.message}`
                                             })
                                         }
-                                        console.log('Check letter list agin body ', body);
+                                        console.log('Write letter body ', body);
                                         const result = JSON.parse(body);
                                         if (result.resultCd === '0000') {
-                                            const tempLetterList = result.listResult.filter(i => i.nickname === myNickname);
-                                            if (tempLetterList.length === letterList.length + 1) {
-                                                res.send({
-                                                    success: true,
-                                                    message: `Good day bro.`
-                                                })
-                                            } else {
-                                                res.send({
-                                                    success: false,
-                                                    message: `before letter length and after letter length not matched ${tempLetterList.length} <=> ${letterList.length} + 1`
-                                                })
-                                            }
+                                            checkLetterList(cookie, (err,httpResponse,body) => {
+                                                if (err) {
+                                                    res.send({
+                                                        success: false,
+                                                        message: `Error while check letter list agin ${err.message}`
+                                                    })
+                                                }
+                                                console.log('Check letter list agin body ', body);
+                                                const result = JSON.parse(body);
+                                                if (result.resultCd === '0000') {
+                                                    const tempLetterList = result.listResult.filter(i => i.nickname === myNickname);
+                                                    if (tempLetterList.length === letterList.length + 1) {
+                                                        res.send({
+                                                            success: true,
+                                                            message: `Good day bro.`
+                                                        })
+                                                    } else {
+                                                        res.send({
+                                                            success: false,
+                                                            message: `before letter length and after letter length not matched ${tempLetterList.length} <=> ${letterList.length} + 1`
+                                                        })
+                                                    }
+                                                } else {
+                                                    res.send({
+                                                        success: false,
+                                                        message: `Error while check letter list agin ${result.resultCd}`
+                                                    })
+                                                }
+                                            })
                                         } else {
                                             res.send({
                                                 success: false,
-                                                message: `Error while check letter list agin ${result.resultCd}`
+                                                message: `Error while write letter ${result.resultCd}`
                                             })
                                         }
                                     })
                                 } else {
                                     res.send({
                                         success: false,
-                                        message: `Error while write letter ${result.resultCd}`
+                                        message: `Error while crawl naver keyword.`
                                     })
                                 }
                             })
@@ -139,7 +148,34 @@ macroApi.post('/letter', (req, res) => {
     })
 })
 
-const writeLetter = (cookie, lastCount, callbackFunc) => {
+const crawlNaverKeywordRealtimeListener = (callbackFunc) => {
+    const cheerio = require('cheerio');
+    const request = require('request');
+    const options = {
+        uri: 'https://datalab.naver.com/keyword/realtimeList.naver',
+        method: 'GET',
+        headers: {
+            accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+            'accept-encoding': 'gzip, deflate, br',
+            'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
+            'cache-control': 'no-cache',
+            referer: 'https://datalab.naver.com/local/trend.naver',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.116 Safari/537.36'
+        }
+    }
+    request.get(options, (err,httpResponse,body) => {
+        if (err) {
+            console.log(`Error while get naver keyword site ${err.message}`)
+            callbackFunc(null);
+        }
+        const $ = cheerio.load(body);
+        const realtimeKeywordList = $('div[class=list_group]').text().trim().replace(/\s/g, '');
+        console.log('keyworad list: ', realtimeKeywordList);
+        callbackFunc(realtimeKeywordList);
+    })
+}
+
+const writeLetter = (cookie, lastCount, content, callbackFunc) => {
     const request = require('request');
     const options = {
         uri: 'https://www.thecamp.or.kr/consolLetter/insertConsolLetterA.do',
@@ -150,7 +186,7 @@ const writeLetter = (cookie, lastCount, callbackFunc) => {
         form: {
             boardDiv: 'sympathyLetter',
             tempSaveYn: 'N',
-            sympathyLetterContent: '<p>ASDF</p>',
+            sympathyLetterContent: `<p>${content}</p>`,
             sympathyLetterSubject: `${thecampInfo.traineeName} 기 살리기 T-${lastCount}`,
             traineeMgrSeq: thecampInfo.traineeMgrSeq,
         }
