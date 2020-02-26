@@ -110,6 +110,9 @@ h1, h2 {
 ul {
   list-style-type: none;
   padding: 0;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 li {
