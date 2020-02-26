@@ -40,5 +40,10 @@ macroApi.get('/letter', (req, res) => {
     thecamp.getLetterList(thecampInfo, res)
 })
 
+macroApi.get('/status', (req, res) => {
+    const server = require('./Core/server');
+    server.getServerStatus(admin, res);
+})
+
 
 exports.macro = functions.region('asia-northeast1').https.onRequest(macroApi);
