@@ -34,209 +34,186 @@ macroApi.post('/letter', (req, res) => {
     let cookie = '';
     let myNickname = '';
     let letterList = [];
-    signInToTheCampAsEmail((err,httpResponse,body) => {
-        if (err) {
+    signInToTheCampAsEmail(thecampInfo)
+        .then(currentCookie => {
+            cookie = currentCookie;
+            return checkSignIn(cookie)
+        })
+        .then(nickname => {
+            myNickname = nickname;
+            return checkLetterList(cookie, thecampInfo, myNickname);
+        })
+        .then(currentLetterList => {
+            letterList = currentLetterList;
+            return crawlNaverKeywordRealtimeListener();
+        })
+        .then(keywoardListStr => writeLetter(cookie, thecampInfo, letterList.length + 1, keywoardListStr))
+        .then(code => checkLetterList(cookie, thecampInfo, myNickname))
+        .then(currentLetterList => {
+            if (currentLetterList.length === letterList.length + 1) {
+                res.send({
+                    success: true,
+                    message: 'Good bye bro.'
+                })
+                return true;
+            } else {
+                res.send({
+                    success: false,
+                    message: `Letter size not match ${currentLetterList.length} <-> ${letterList.length} + 1`
+                })
+                return false;
+            }
+        })
+        .catch(err => {
             res.send({
                 success: false,
-                message: `Error while sign in ${err.message}`
+                message: err
             })
-        }
-        console.log('Sign in body ', body);
-        cookie = httpResponse.headers['set-cookie'].join('; ');
-        const result = JSON.parse(body);
-        if (result.resultCd === '0000') {
-            checkSignIn(cookie, (err,httpResponse,body) => {
-                if (err) {
-                    res.send({
-                        success: false,
-                        message: `Error while check signed in ${err.message}`
-                    })
-                }
-                console.log('Check signed in body ', body);
-                const result = JSON.parse(body);
-                if (result.nickname) {
-                    myNickname = result.nickname;
-
-                    checkLetterList(cookie, (err,httpResponse,body) => {
-                        if (err) {
-                            res.send({
-                                success: false,
-                                message: `Error while check letter list ${err.message}`
-                            })
-                        }
-                        console.log('Check letter list body ', body);
-                        const result = JSON.parse(body);
-                        if (result.resultCd === '0000') {
-                            letterList = result.listResult.filter(i => i.nickname === myNickname);
-                            console.log(`current letter size: ${letterList.length}`)
-                            
-                            crawlNaverKeywordRealtimeListener((keywordData) => {
-                                if (keywordData) {
-                                    writeLetter(cookie, letterList.length + 1, keywordData, (err,httpResponse,body) => {
-                                        if (err) {
-                                            res.send({
-                                                success: false,
-                                                message: `Error while write letter ${err.message}`
-                                            })
-                                        }
-                                        console.log('Write letter body ', body);
-                                        const result = JSON.parse(body);
-                                        if (result.resultCd === '0000') {
-                                            checkLetterList(cookie, (err,httpResponse,body) => {
-                                                if (err) {
-                                                    res.send({
-                                                        success: false,
-                                                        message: `Error while check letter list agin ${err.message}`
-                                                    })
-                                                }
-                                                console.log('Check letter list agin body ', body);
-                                                const result = JSON.parse(body);
-                                                if (result.resultCd === '0000') {
-                                                    const tempLetterList = result.listResult.filter(i => i.nickname === myNickname);
-                                                    if (tempLetterList.length === letterList.length + 1) {
-                                                        res.send({
-                                                            success: true,
-                                                            message: `Good day bro.`
-                                                        })
-                                                    } else {
-                                                        res.send({
-                                                            success: false,
-                                                            message: `before letter length and after letter length not matched ${tempLetterList.length} <=> ${letterList.length} + 1`
-                                                        })
-                                                    }
-                                                } else {
-                                                    res.send({
-                                                        success: false,
-                                                        message: `Error while check letter list agin ${result.resultCd}`
-                                                    })
-                                                }
-                                            })
-                                        } else {
-                                            res.send({
-                                                success: false,
-                                                message: `Error while write letter ${result.resultCd}`
-                                            })
-                                        }
-                                    })
-                                } else {
-                                    res.send({
-                                        success: false,
-                                        message: `Error while crawl naver keyword.`
-                                    })
-                                }
-                            })
-                        } else {
-                            res.send({
-                                success: false,
-                                message: `Error while check letter list ${result.resultCd}`
-                            })
-                        }
-                    })
-                } else {
-                    res.send({
-                        success: false,
-                        message: `Error while check signed in.`
-                    })
-                }
-            })
-        } else {
-            res.send({
-                success: false,
-                message: `Error while sign in ${result.resultCd}`
-            })
-        }
-    })
+        })
 })
 
-const crawlNaverKeywordRealtimeListener = (callbackFunc) => {
-    const cheerio = require('cheerio');
-    const request = require('request');
-    const options = {
-        uri: 'https://datalab.naver.com/keyword/realtimeList.naver',
-        method: 'GET',
-        headers: {
-            accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-            'accept-encoding': 'gzip, deflate, br',
-            'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
-            'cache-control': 'no-cache',
-            referer: 'https://datalab.naver.com/local/trend.naver',
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.116 Safari/537.36'
+const crawlNaverKeywordRealtimeListener = () => {
+    return new Promise((resolve, reject) => {
+        const cheerio = require('cheerio');
+        const request = require('request');
+        const options = {
+            uri: 'https://datalab.naver.com/keyword/realtimeList.naver',
+            method: 'GET',
+            headers: {
+                accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+                'accept-encoding': 'gzip, deflate, br',
+                'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
+                'cache-control': 'no-cache',
+                referer: 'https://datalab.naver.com/local/trend.naver',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.116 Safari/537.36'
+            }
         }
-    }
-    request.get(options, (err,httpResponse,body) => {
-        if (err) {
-            console.log(`Error while get naver keyword site ${err.message}`)
-            callbackFunc(null);
-        }
-        const $ = cheerio.load(body);
-        const realtimeKeywordList = $('div[class=list_group]').text().trim().replace(/\s/g, '');
-        console.log('keyworad list: ', realtimeKeywordList);
-        callbackFunc(realtimeKeywordList);
+        request.get(options, (err,httpResponse,body) => {
+            if (err) {
+                reject(new Error(`Error while get naver keyword site ${err.message}`))
+            }
+            const $ = cheerio.load(body);
+            const realtimeKeywordListStr = $('div[class=list_group]').text().trim().replace(/\s/g, '');
+            console.log('keyworad list: ', realtimeKeywordListStr);
+            resolve(realtimeKeywordListStr);
+        })
     })
 }
 
-const writeLetter = (cookie, lastCount, content, callbackFunc) => {
-    const request = require('request');
-    const options = {
-        uri: 'https://www.thecamp.or.kr/consolLetter/insertConsolLetterA.do',
-        method: 'POST',
-        headers: {
-            Cookie: cookie
-        },
-        form: {
-            boardDiv: 'sympathyLetter',
-            tempSaveYn: 'N',
-            sympathyLetterContent: `<p>${content}</p>`,
-            sympathyLetterSubject: `${thecampInfo.traineeName} 기 살리기 T-${lastCount}`,
-            traineeMgrSeq: thecampInfo.traineeMgrSeq,
+const writeLetter = (cookie, thecampInfo, lastCount, content) => {
+    return new Promise((resolve, reject) => {
+        const request = require('request');
+        const options = {
+            uri: 'https://www.thecamp.or.kr/consolLetter/insertConsolLetterA.do',
+            method: 'POST',
+            headers: {
+                Cookie: cookie
+            },
+            form: {
+                boardDiv: 'sympathyLetter',
+                tempSaveYn: 'N',
+                sympathyLetterContent: `<p>${content}</p>`,
+                sympathyLetterSubject: `${thecampInfo.traineeName} 기 살리기 T-${lastCount}`,
+                traineeMgrSeq: thecampInfo.traineeMgrSeq,
+            }
         }
-    }
-    request.post(options, callbackFunc)
+        request.post(options, (err, httpResponse, body) => {
+            if (err) {
+                reject(new Error(`Error while write letter ${err.message}`))
+            }
+            console.log('Write letter body ', body);
+            const result = JSON.parse(body);
+            if (result.resultCd === '0000') {
+                resolve(result.resultCd)
+            } else {
+                reject(new Error(`Error while write letter ${result.resultCd}`))
+            }
+        })
+    })
 }
 
-const checkLetterList = (cookie, callbackFunc) => {
-    const request = require('request');
-    const options = {
-        uri: 'https://www.thecamp.or.kr/consolLetter/selectConsolLetterA.do',
-        method: 'POST',
-        headers: {
-            Cookie: cookie
-        },
-        form: {
-            traineeMgrSeq: thecampInfo.traineeMgrSeq,
-            tempSaveYn: 'N',
-            _url: 'https://www.thecamp.or.kr/consolLetter/viewConsolLetterMain.do',
-            keepSearchConditionUrlKey: 'consolLetter'
+const checkLetterList = (cookie, thecampInfo, myNickname) => {
+    return new Promise((resolve, reject) => {
+        const request = require('request');
+        const options = {
+            uri: 'https://www.thecamp.or.kr/consolLetter/selectConsolLetterA.do',
+            method: 'POST',
+            headers: {
+                Cookie: cookie
+            },
+            form: {
+                traineeMgrSeq: thecampInfo.traineeMgrSeq,
+                tempSaveYn: 'N',
+                _url: 'https://www.thecamp.or.kr/consolLetter/viewConsolLetterMain.do',
+                keepSearchConditionUrlKey: 'consolLetter'
+            }
         }
-    }
-    request.post(options, callbackFunc)
+        request.post(options, (err, httpResponse, body) => {
+            if (err) {
+                reject(new Error(`Error while check letter list ${err.message}`))
+            }
+            console.log('Check letter list body ', body);
+            const result = JSON.parse(body);
+            if (result.resultCd === '0000') {
+                resolve(result.listResult.filter(i => i.nickname === myNickname));
+            } else {
+                reject(new Error(`Error while check letter list ${result.resultCd}`))
+            }
+        })
+    })
 }
 
-const checkSignIn = (cookie, callbackFunc) => {
-    const request = require('request');
-    const options = {
-        uri: 'https://www.thecamp.or.kr/member/selectMemberTypeA.do',
-        method: 'POST',
-        headers: {
-            Cookie: cookie
+const checkSignIn = (cookie) => {
+    return new Promise((resolve, reject) => {
+        const request = require('request');
+        const options = {
+            uri: 'https://www.thecamp.or.kr/member/selectMemberTypeA.do',
+            method: 'POST',
+            headers: {
+                Cookie: cookie
+            }
         }
-    }
-    request.post(options, callbackFunc)
+        request.post(options, (err,httpResponse,body) => {
+            if (err) {
+                reject(new Error(`Error while check signed in ${err.message}`))
+            }
+            console.log('Check signed in body ', body);
+            const result = JSON.parse(body);
+            if (result.nickname) {
+                resolve(result.nickname);
+            } else {
+                reject(new Error(`Error while check signed in.`))
+            }
+        })
+    });
 }
 
-const signInToTheCampAsEmail = (callbackFunc) => {
-    const request = require('request');
-    const options = {
-        uri: 'https://www.thecamp.or.kr/login/loginA.do',
-        method: 'POST',
-        form: {
-            state: 'email-login',
-            autoLoginYn: 'N',
-            userId: thecampInfo.email,
-            userPwd: thecampInfo.password
+const signInToTheCampAsEmail = (thecampInfo) => {
+    return new Promise((resolve, reject) => {
+        const request = require('request');
+        const options = {
+            uri: 'https://www.thecamp.or.kr/login/loginA.do',
+            method: 'POST',
+            form: {
+                state: 'email-login',
+                autoLoginYn: 'N',
+                userId: thecampInfo.email,
+                userPwd: thecampInfo.password
+            }
         }
-    }
-    request.post(options, callbackFunc)
+        request.post(options, (err,httpResponse,body) => {
+            if (err) {
+                reject(new Error(`Error while sign in ${err.message}`))
+            }
+            const result = JSON.parse(body);
+            if (result.resultCd === '0000') {
+                const cookie = httpResponse.headers['set-cookie'].join('; ');
+                resolve(cookie);
+            } else {
+                reject(new Error(`Error while sign in ${result.resultCd}`))
+            }
+        })
+    })
 }
 
 exports.macro = functions.region('asia-northeast1').https.onRequest(macroApi);
