@@ -113,7 +113,10 @@ ul {
 }
 
 li {
-  
+  max-width: 400px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
   margin: 0 10px;
 }
 
