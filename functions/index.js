@@ -1,5 +1,5 @@
 const functions = require('firebase-functions');
-global.admin = require('firebase-admin');
+const admin = require('firebase-admin');
 // Packages
 const express = require('express')
 const bodyParser = require('body-parser')
@@ -19,8 +19,8 @@ const thecampInfo = {
     password: functions.config().thecamp.password,
     traineeMgrSeq: functions.config().thecamp.trainee_mgr_seq
 }
-projectInfo['credential'] = global.admin.credential.cert(serviceAccount)
-global.admin.initializeApp(projectInfo)
+projectInfo['credential'] = admin.credential.cert(serviceAccount)
+admin.initializeApp(projectInfo)
 
 macroApi.use(cors);
 macroApi.get('/', (req, res) => {
@@ -32,7 +32,7 @@ macroApi.get('/', (req, res) => {
 
 macroApi.post('/letter', (req, res) => {
     const thecamp = require('./Core/thecamp');
-    thecamp.sendLetter(thecampInfo, res)
+    thecamp.sendLetter(thecampInfo, admin, res)
 })
 
 macroApi.get('/letter', (req, res) => {

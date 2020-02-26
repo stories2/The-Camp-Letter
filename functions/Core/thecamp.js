@@ -1,7 +1,11 @@
-exports.sendLetter = (thecampInfo, res) => {
+exports.sendLetter = (thecampInfo, admin, res) => {
     let cookie = '';
     let myNickname = '';
     let letterList = [];
+    const time = new Date().getTime();
+
+    const ref = admin.database().ref('letter/status')
+
     signInToTheCampAsEmail(thecampInfo)
         .then(currentCookie => {
             cookie = currentCookie;
@@ -19,23 +23,67 @@ exports.sendLetter = (thecampInfo, res) => {
         .then(code => checkLetterList(cookie, thecampInfo, myNickname))
         .then(currentLetterList => {
             if (currentLetterList.length === letterList.length + 1) {
-                res.send({
-                    success: true,
-                    message: 'Good bye bro.'
+                ref.push().set({
+                    status: true,
+                    message: 'OK',
+                    time: time
+                }, err => {
+                    if (err) {
+                        console.error(`Cannot save data ${err.message}`)
+                        res.send({
+                            success: false,
+                            message: `Cannot save data ${err.message}`
+                        })
+                    } else {
+                        res.send({
+                            success: true,
+                            message: 'Good bye bro.'
+                        })
+                    }
                 })
                 return true;
             } else {
-                res.send({
-                    success: false,
-                    message: `Letter size not match ${currentLetterList.length} <-> ${letterList.length} + 1`
+                ref.push().set({
+                    status: false,
+                    message: err,
+                    time: time
+                }, err => {
+                    const result = {
+                        success: false,
+                        message: `Letter size not match ${currentLetterList.length} <-> ${letterList.length} + 1`
+                    }
+                    if (err) {
+                        console.error(`Cannot save data ${err.message}`)
+                        result.message += `\nCannot save data, Letter  ${err.message}`
+                    } 
+                    
+                    res.send({
+                        success: false,
+                        message: `Cannot save data, Letter  ${err.message}`
+                    })
                 })
                 return false;
             }
         })
         .catch(err => {
-            res.send({
-                success: false,
-                message: err
+            ref.push().set({
+                status: false,
+                message: err,
+                time: time
+            }, err => {
+                const result = {
+                    success: false,
+                    message: `${err}`
+                }
+                if (err) {
+                    console.error(`Cannot save data ${err.message}`)
+                    result.message += `\nCannot save data, Letter  ${err.message}`
+                } 
+                
+                res.send({
+                    success: false,
+                    message: `Cannot save data, Letter  ${err.message}`
+                })
             })
         })
 }
