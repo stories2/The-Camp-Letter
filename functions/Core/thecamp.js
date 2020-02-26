@@ -45,7 +45,7 @@ exports.sendLetter = (thecampInfo, admin, res) => {
             } else {
                 ref.push().set({
                     status: false,
-                    message: err,
+                    message: `Letter size not match ${currentLetterList.length} <-> ${letterList.length} + 1`,
                     time: time
                 }, err => {
                     const result = {
