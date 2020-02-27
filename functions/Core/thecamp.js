@@ -107,6 +107,7 @@ exports.getLetterList = (thecampInfo, res) => {
                     return {
                         seq: item.seq,
                         regDate: item.regDate,
+                        regTime: item.regTime,
                         statusCd: item.statusCd,
                         statusNm: item.statusNm,
                         uptDate: item.uptDate,
