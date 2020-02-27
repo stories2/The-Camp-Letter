@@ -7,7 +7,7 @@
     </ul>
     <h2>서버 상태 현황</h2>
     <ul>
-      <li v-for="status in statusList">#{{timeToDateTime(status.time)}} - {{status.message}}</li>
+      <li v-for="status in reverseStatusList">#{{timeToDateTime(status.time)}} - {{status.message}}</li>
     </ul>
   </div>
 </template>
@@ -22,6 +22,11 @@ export default {
       msg: 'The Camp 위문 편지 전송 매크로',
       statusList: [],
       letterList: []
+    }
+  },
+  computed: {
+    reverseStatusList () {
+      return this.statusList.sort((a, b) => a.time < b.time ? 1 : -1);
     }
   },
   methods: {
