@@ -109,6 +109,8 @@ exports.getLetterList = (thecampInfo, res) => {
                         regDate: item.regDate,
                         statusCd: item.statusCd,
                         statusNm: item.statusNm,
+                        uptDate: item.uptDate,
+                        uptTime: item.uptTime
                     }
                 }).slice(0, 5)
             })

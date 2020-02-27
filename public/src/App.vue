@@ -3,7 +3,7 @@
     <h1>{{ msg }}</h1>
     <h2>편지 전송 현황</h2>
     <ul>
-      <li v-for="letter in letterList">#{{letter.seq}} {{letter.regDate}} - {{letter.statusNm}}</li>
+      <li v-for="letter in letterList">#{{letter.seq}} {{letter.uptDate}} {{letter.uptTime}} - {{letter.statusNm}}</li>
     </ul>
     <h2>서버 상태 현황</h2>
     <ul>
