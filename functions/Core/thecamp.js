@@ -110,7 +110,7 @@ exports.getLetterList = (thecampInfo, res) => {
                         statusCd: item.statusCd,
                         statusNm: item.statusNm,
                     }
-                })
+                }).slice(0, 5)
             })
             return true;
         })
