@@ -17,7 +17,7 @@ exports.sendLetter = (thecampInfo, admin, res) => {
         })
         .then(currentLetterList => {
             letterList = currentLetterList;
-            return crawlNaverKeywordRealtimeListener();
+            return crawlDaumPopularNews();
         })
         .then(keywoardListStr => writeLetter(cookie, thecampInfo, letterList.length + 1, keywoardListStr))
         .then(code => checkLetterList(cookie, thecampInfo, myNickname))
@@ -75,15 +75,31 @@ exports.sendLetter = (thecampInfo, admin, res) => {
                     success: false,
                     message: `${err}`
                 }
-                if (err) {
+                if (err && err.message) {
                     console.error(`Cannot save data ${err.message}`)
                     result.message += `\nCannot save data, Letter  ${err.message}`
-                } 
                 
-                res.send({
-                    success: false,
-                    message: `Cannot save data, Letter  ${err.message}`
-                })
+                    res.send({
+                        success: false,
+                        message: `Cannot save data, Letter  ${err.message}`
+                    })
+                } else if (err) {
+                    console.error(`Cannot save data ${err}`)
+                    result.message += `\nCannot save data, Letter  ${err}`
+                
+                    res.send({
+                        success: false,
+                        message: `Cannot save data, Letter  ${err}`
+                    })
+                } else {
+                    console.error(`Cannot save data [Undefined error]`)
+                    result.message += `\nCannot save data, Letter [Undefined error]`
+                
+                    res.send({
+                        success: false,
+                        message: `Cannot save data, Letter [Undefined error]`
+                    })
+                }
             })
         })
 }
@@ -120,9 +136,38 @@ exports.getLetterList = (thecampInfo, res) => {
         .catch(err => {
             res.send({
                 success: false,
-                message: err
+                message: err || 'Fail'
             })
         })
+}
+
+const crawlDaumPopularNews = () => {
+    return new Promise((resolve, reject) => {
+        const cheerio = require('cheerio');
+        const request = require('request');
+        const options = {
+            uri: 'https://news.daum.net/ranking/popular',
+            method: 'GET',
+            headers: {
+                accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+                'accept-encoding': 'gzip, deflate, br',
+                'accept-language': 'en-US,en;q=0.9,ko;q=0.8',
+                'cache-control': 'no-cache',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.116 Safari/537.36'
+            }
+        }
+        request.get(options, (err,httpResponse,body) => {
+            if (err) {
+                reject(new Error(`Error while get daumn popular news site ${err.message}`));
+                return;
+            }
+            const $ = cheerio.load(body);
+            const newsListStr = $('.list_news2 > li').text().trim().replace(/\s/g, '');
+            // console.log('body', body);
+            console.log('news list: ', newsListStr);
+            resolve(newsListStr);
+        })
+    })
 }
 
 const crawlNaverKeywordRealtimeListener = () => {
@@ -155,6 +200,11 @@ const crawlNaverKeywordRealtimeListener = () => {
 
 const writeLetter = (cookie, thecampInfo, lastCount, content) => {
     return new Promise((resolve, reject) => {
+        if (!content || content.length <= 0) {
+            console.log('Empty content detected!');
+            reject('Empty content detected!');
+            return;
+        }
         const request = require('request');
         const options = {
             uri: 'https://www.thecamp.or.kr/consolLetter/insertConsolLetterA.do',
