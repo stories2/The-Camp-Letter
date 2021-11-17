@@ -8,3 +8,16 @@
 ## DEMO
 
 ![demo](src/thecamp-demo.png)
+
+## Set up
+
+1. Check the trainee mgr seq from [here](https://www.thecamp.or.kr/consolLetter/viewConsolLetterMain.do)
+2. Config firebase env
+```
+firebase functions:config:set thecamp.trainee_mgr_seq=""
+firebase functions:config:set thecamp.trainee_name=""
+```
+3. Save env as file
+```
+firebase functions:config:get > .runtimeconfig.json
+```
